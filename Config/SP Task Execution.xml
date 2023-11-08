@@ -1,0 +1,78 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="GIB Task Execution" type="">
+  <Variable initializer="string:true" input="true" name="trace"/>
+  <Variable initializer="string:true" input="true" name="transient"/>
+  <Variable input="true" name="trigger"/>
+  <Variable input="true" name="event"/>
+  <Variable editable="true" initializer="string:true" input="true" name="doRefresh"/>
+  <Variable name="taskName"/>
+  <Variable name="launcher"/>
+  <Variable name="launcherEmail"/>
+  <Step icon="Start" name="Start" posX="28" posY="10">
+    <Transition to="Choose Task"/>
+  </Step>
+  <Step icon="Task" name="Choose Task" posX="118" posY="11">
+    <Approval name="TaskExecution" owner="ref:launcher" return="taskName" send="launcher">
+      <Arg name="workItemRequester" value="ref:requester"/>
+      <Arg name="workItemType" value="Form"/>
+      <Form name="TaskExecution">
+        <Attributes>
+          <Map>
+            <entry key="pageTitle" value="Choose Task"/>
+          </Map>
+        </Attributes>
+        <Section columns="2">
+          <Field columnSpan="1" displayName="Select Task" dynamic="true" multi="true" name="taskName" required="true" type="sailpoint.object.TaskDefinition">
+            <Attributes>
+              <Map>
+                <entry key="filterString">
+                  <value>
+                    <Script>
+                      <Source>
+                        import sailpoint.object.Filter;
+                        Filter f1 = Filter.like("name", "GIB");
+                        form.getField("taskName").setFilterString(f1.toString());
+                        return f1.toString();
+                     </Source>
+                    </Script>
+                  </value>
+                </entry>
+              </Map>
+            </Attributes>
+          </Field>
+        </Section>
+        <Button action="next" label="Continue"/>
+        <Button action="cancel" label="Cancel Request"/>
+      </Form>
+    </Approval>
+    <Transition to="Execute Task"/>
+	</Step>
+  <Step name="Execute Task" posX="141" posY="9">
+    <Arg name="taskName" value="ref:taskName"/>
+    <Script>
+      <Source>
+        import sailpoint.api.TaskManager;
+        import sailpoint.object.TaskResult;
+        import sailpoint.object.TaskDefinition;
+        import sailpoint.object.QueryOptions;
+        import sailpoint.object.Filter;
+        import sailpoint.api.Terminator;
+        Map args = new HashMap();
+        for(String taskName:taskName) {
+        	TaskDefinition task = (TaskDefinition) context.getObjectById(TaskDefinition.class, taskName);
+  			String name = task.getName();
+        	TaskManager tm = new TaskManager(context);
+        	TaskResult result = tm.runSync(name,args);
+       }
+       	QueryOptions qo = new QueryOptions();
+       	qo.addFilter(Filter.like("name", "QuickLink Launch for identity spadmin", Filter.MatchMode.START));
+       	Terminator term = new Terminator(context);
+       	term.deleteObjects(TaskResult.class, qo);
+       	context.commitTransaction();
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+	</Step>
+  <Step icon="Stop" name="Stop" posX="800" posY="10"/>
+</Workflow>

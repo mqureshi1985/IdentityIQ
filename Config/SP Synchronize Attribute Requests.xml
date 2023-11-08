@@ -1,0 +1,79 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Synchronize Attribute Requests">
+<ReferencedRules>
+<Reference class="sailpoint.object.Rule" name="SP Role Assigment Rule Library"/>
+<Reference class="sailpoint.object.Rule" name="SP Provisioning Rules Library"/>
+<Reference class="sailpoint.object.Rule" name="SP Common Rule Library"/>
+</ReferencedRules>
+<Source>
+  import java.util.ArrayList;
+  import java.util.List;
+ 
+  import com.iam.IAMLogger;
+ 
+  import sailpoint.api.IdentityService;
+  import sailpoint.api.Provisioner;
+  import sailpoint.api.SailPointContext;
+  import sailpoint.object.Application;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Custom;
+  import sailpoint.object.Link;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningProject;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+ 
+  List&lt;ProvisioningProject> projects = new ArrayList&lt;ProvisioningProject>();
+ 
+  IdentityService is = new IdentityService(context);
+  Provisioner provisioner = new Provisioner(context);
+  provisioner.setNoLocking(true);
+  Application app = context.getObject(Application.class, "Active Directory");
+  Custom mappingObj = context.getObjectByName(Custom.class, "SP Bulk Attribute Synch Mappings");
+ 
+  for (Object data : partitionedObjects) {
+    Object[] row = (Object[]) data;
+    String id = (String) row[0];
+    if (id != null) {
+      try {
+        Identity identity = context.getObjectById(Identity.class, id);
+        List&lt;Link> links = is.getLinks(identity, app);
+        if (links == null || links.isEmpty()) {
+          continue;
+        }
+        Link link = links.get(0);
+        if (!link.isDisabled()) {
+          List attrReqs = getUpdateAttributeRequests(context, identity, link, mappingObj);
+ 
+          if (attrReqs != null &amp;&amp; !attrReqs.isEmpty()) {
+            List&lt;String> extnAttributes = Util.csvToList("manager,description,title,l,st,c,co,country,company,department");
+            AccountRequest acctReq = new AccountRequest(AccountRequest.Operation.Modify, link.getApplicationName(), link.getInstance(), link.getNativeIdentity());
+            for (Object attrReq : attrReqs) {
+              AttributeRequest req = (AttributeRequest) attrReq;
+              if (identity.getManager() != null &amp;&amp; extnAttributes.contains(req.getName())) {
+                String value = (String)link.getAttribute(req.getName());							
+                acctReq.add(req);
+              }
+            }
+            if (acctReq.getAttributeRequests() != null &amp;&amp; acctReq.getAttributeRequests().size() > 0) {
+              ProvisioningPlan plan = new ProvisioningPlan();
+              plan.add(acctReq);
+              plan.setIdentity(identity);
+              ProvisioningProject project = provisioner.compile(plan);
+              provisioner.execute(project);
+              IAMLogger.debug(IAMLogger.ATTRSYNC, project.toXml());
+            }
+          }
+        }
+        context.decache();
+      } catch (Exception e) {
+        IAMLogger.debug(IAMLogger.ATTRSYNC, "Warning: problem deleting object: " + e.getMessage());
+      }
+    }
+  }
+  return projects;
+</Source>
+</Rule>

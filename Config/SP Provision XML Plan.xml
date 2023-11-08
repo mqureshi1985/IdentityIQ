@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Provision XML Plan">
+  <Source>
+  import sailpoint.api.Provisioner;
+  import sailpoint.object.Identity;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningProject;
+  import sailpoint.tools.Util;
+  import sailpoint.tools.xml.XMLObjectFactory;
+ 
+  try {
+    String identityName = "111754";
+    String xml = Util.readFile("C:\\iam\\plan.xml");
+    XMLObjectFactory f = XMLObjectFactory.getInstance();
+    Object o = f.parseXml(context, xml, true);
+    if (!(o instanceof ProvisioningPlan)) {
+      System.out.println("File does not contain ProvisioningPlan XML\n");
+    } else {
+      ProvisioningPlan plan = (ProvisioningPlan) o;
+      Identity identity = context.getObjectByName(Identity.class, identityName);
+      plan.setIdentity(identity);
+      Provisioner provisioner = new Provisioner(context);
+      provisioner.setNoLocking(true);
+      ProvisioningProject project = provisioner.compile(plan);
+      provisioner.execute(project);
+      return project.toXml();
+    }
+  } catch (Exception ex) {
+   throw new RuntimeException(ex);
+  }
+  </Source>
+</Rule>

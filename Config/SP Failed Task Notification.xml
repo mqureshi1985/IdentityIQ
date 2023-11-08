@@ -1,0 +1,94 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Failed Task Notification">
+<Source>
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import sailpoint.tools.Message;
+ 
+import sailpoint.object.EmailOptions;
+import sailpoint.object.EmailTemplate;
+import sailpoint.object.Filter;
+import sailpoint.object.Identity;
+import sailpoint.object.QueryOptions;
+import sailpoint.object.TaskResult;
+import sailpoint.tools.Util;
+ 
+HashMap taskResults = new HashMap();
+HashMap taskResults_Map = new HashMap();
+Date now = new Date();
+Date checkStartTime = null;
+Calendar cal = Calendar.getInstance();
+cal.setTime(now);
+//taking for last 5 hours
+cal.add(Calendar.HOUR, -2);
+SimpleDateFormat sdf = new SimpleDateFormat("MM/dd HH:mm:ss");
+checkStartTime = cal.getTime();
+ 
+QueryOptions ops = new QueryOptions();
+ops.addFilter(Filter.ne("completionStatus","Success"));
+ops.addFilter(Filter.gt("launched", checkStartTime));
+
+Iterator itr = context.search(TaskResult.class, ops, "id,name");
+if(null!=itr)
+{
+	int count = 1;
+	while(itr.hasNext()) {
+		Object[] next = (Object[]) itr.next();
+		String taskResultId = (String) next[0];
+   		String name = (String) next[1];
+   		taskResults.put("TaskName", name);
+  		  if (Util.isNotNullOrEmpty(taskResultId)) {
+  			    TaskResult result = context.getObjectById(TaskResult.class, taskResultId);
+  			    if (result != null) {
+  			      if ((result.getAttributes() != null) &amp;&amp;  (result.getMessages() != null) &amp;&amp; (!(result.getMessages().isEmpty()))) {
+  			        List&lt;String> messages = new ArrayList&lt;String>();
+  			        for (Message message : Util.safeIterable(result.getMessages())) {
+  			          messages.add(message.getMessage());
+  			        }
+  			        taskResults.put("Message", messages);
+  			      }
+  			    }
+  			  }
+
+   		taskResults_Map.put("task"+count,taskResults);
+   		count = count+1;
+	}
+}
+System.out.println(taskResults_Map);
+Util.flushIterator(itr);
+ 
+//sending email notification to SSG group
+String email_dest = "";
+Identity identity = context.getObjectByName(Identity.class,"SSGWorkGroup");
+if(null == identity){
+	System.out.println("No identity found: SSGWorkGroup");
+	return;
+}
+ 
+email_dest = identity.getEmail();
+System.out.println("SSGWorkgroup  :"+email_dest);
+if(null == email_dest){
+	System.out.println("No email found: SSGWorkGroup");
+	return;
+}
+String tplName = "GIB - Task Failure Notification";
+EmailTemplate template = context.getObjectByName(EmailTemplate.class, tplName);
+if (null == template) {
+	System.out.println("ERROR: could not find email template [ " + tplName + "]");
+	return;   
+}
+
+EmailOptions eOps = new EmailOptions();
+eOps.setTo(email_dest);
+eOps.setVariable("taskResults_Map",taskResults_Map);
+context.sendEmailNotification(template, eOps);
+System.out.println("Email sent successfully");
+
+</Source>
+</Rule>

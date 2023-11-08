@@ -1,0 +1,297 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Common Rule Library">
+  <ReferencedRules>
+    <Reference class="sailpoint.object.Rule" name="SP Role Assigment Rule Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Provisioning Rules Library"/>
+  </ReferencedRules>
+  <Source>
+  import java.util.ArrayList;
+  import java.util.Arrays;
+  import java.util.HashMap;
+  import java.util.Iterator;
+  import java.util.List;
+  import java.util.Map;
+  import com.iam.IAMConstants;
+  import com.iam.IAMLogger;
+  import com.iam.IAMUtil;
+  import sailpoint.api.IdentityService;
+  import sailpoint.api.Provisioner;
+  import sailpoint.api.SailPointContext;
+  import sailpoint.connector.ConnectorException;
+  import sailpoint.object.Application;
+  import sailpoint.object.ApprovalSet;
+  import sailpoint.object.ApprovalItem;
+  import sailpoint.object.Attributes;
+  import sailpoint.object.Comment;
+  import sailpoint.object.Custom;
+  import sailpoint.object.Field;
+  import sailpoint.object.Filter;
+  import sailpoint.object.Form;
+  import sailpoint.object.FormRef;
+  import sailpoint.object.Identity;
+  import sailpoint.object.Link;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.object.ProvisioningProject;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.Rule;
+  import sailpoint.object.Script;
+  import sailpoint.object.Template;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+ 
+  public void doAutoApprove(ApprovalSet approvalSet) {
+    if (approvalSet != null) {
+      List items = approvalSet.getItems();
+      if (items != null &amp;&amp; items.size() > 0) {
+        for (ApprovalItem item : items) {
+          item.approve();
+          item.add(new Comment("Auto approve item not requiring approval", "spadmin"));
+        }
+      }
+    }
+  }
+ 
+  public List getUpdateAttributeRequests(SailPointContext context, Identity identity, Link link) throws GeneralException {
+    Custom mappingObj = context.getObjectByName(Custom.class, "GIB Bulk Attribute Synch Mappings");
+    return getUpdateAttributeRequests(context, identity, link, mappingObj);
+  }
+ 
+  public List getUpdateAttributeRequests(SailPointContext context, Identity identity, Link link, Custom mappingObj) throws GeneralException {
+    List attrReqs = new ArrayList();
+ 
+    Application app = link.getApplication();
+    String nativeId = link.getNativeIdentity();
+ 
+    String appName = app.getName();
+    String appType = app.getType();
+    String defField = null;
+ 
+    String passwordField = (String) app.getAttributeValue("passwordField");
+ 
+    if (passwordField == null) {
+      passwordField = "userPassword";
+    }
+ 
+    List skipFields = new ArrayList();
+    if (mappingObj != null) {
+      Attributes entrySkipFields = (Attributes) mappingObj.get("Application Skip Fields");
+ 
+      if (entrySkipFields != null) {
+        if (entrySkipFields.containsKey(appName)) {
+          skipFields = entrySkipFields.getList(appName);
+        } else if (entrySkipFields.containsKey(appType)) {
+          skipFields = entrySkipFields.getList(appType);
+        }
+      }
+    }
+ 
+    List&lt;Template> templates = app.getTemplates();
+    Template updateTemp = null;
+ 
+    if (templates != null &amp;&amp; templates.size() > 0) {
+      for (Template temp : templates) {
+        String tempName = temp.getName();
+        String objType = temp.getSchemaObjectType();
+ 
+        boolean isAccount = false;
+ 
+        if (objType != null &amp;&amp; objType.equalsIgnoreCase("account")) {
+          isAccount = true;
+        } else if (tempName != null &amp;&amp; tempName.equalsIgnoreCase("account")) {
+          isAccount = true;
+        }
+ 
+        if (isAccount) {
+          Template.Usage usage = temp.getUsage();
+          if (usage.equals(Template.Usage.Create)) {
+            updateTemp = temp;
+            break;
+          }
+        }
+      }
+    }
+ 
+    if (updateTemp != null) {
+      List&lt;Field> fields = null;
+      FormRef formRef = updateTemp.getFormRef();
+      if (formRef != null) {
+        String formName = formRef.getName();
+        Form form = context.getObjectByName(Form.class, formName);
+        fields = form.getEntireFields();
+      } else {
+        fields = updateTemp.getFields();
+      }
+ 
+      Map allNewVals = new HashMap();
+ 
+      if (fields != null &amp;&amp; fields.size() > 0) {
+        for (Field field : fields) {
+          String fieldName = field.getName();
+          String displayName = field.getDisplayName();
+          if (skipFields.contains(fieldName)) {
+            continue;
+          }
+ 
+          try {
+            String xml = field.toXml();
+            if (xml.indexOf("displayOnly") > -1) {
+              continue;
+            }
+ 
+          } catch (Exception fe) {
+          }
+ 
+          Object oldVal = link.getAttribute(fieldName);
+          if (oldVal instanceof List || oldVal instanceof Map) {
+            oldVal = oldVal.clone();
+          }
+ 
+          if (oldVal == null &amp;&amp; displayName != null) {
+            oldVal = link.getAttribute(displayName);
+          }
+ 
+          boolean runRule = true;
+          boolean runScript = false;
+ 
+          Rule rule = field.getFieldRule();
+          Script script = null;
+ 
+          if (rule == null) {
+            runRule = false;
+            script = field.getScript();
+ 
+            if (script == null) {
+              runScript = false;
+              continue;
+            } else {
+              runScript = true;
+            }
+          }
+ 
+          HashMap params = new HashMap();
+ 
+          params.put("context", context);
+          params.put("identity", identity);
+          params.put("field", field);
+ 
+          if (runScript) {
+            params.putAll(allNewVals);
+          }
+ 
+          Object val = null;
+ 
+          try {
+            if (runRule) {
+              val = context.runRule(rule, params);
+            } else if (runScript) {
+              val = context.runScript(script, params);
+            } else {
+            }
+          } catch (Exception re) {
+            continue;
+          }
+          if (val != null &amp;&amp; "CHECK CONFIG".equalsIgnoreCase(val.toString())) {
+            continue;
+          }
+          allNewVals.put(fieldName, val);
+ 
+          boolean addRequest = false;
+          if ("distinguishedName".equals(fieldName) || "dn".equals(fieldName) || "entrydn".equals(fieldName)) {
+            updateADDNNameFields(nativeId, val, attrReqs);
+          } else {
+            if (!nativeId.startsWith(fieldName)) {
+              addRequest = IAMUtil.isFieldValueUpdated(oldVal, val);
+            }
+          }
+          if (addRequest) {
+            if (field.isMulti()) {
+              AttributeRequest attrReq = new AttributeRequest(fieldName, ProvisioningPlan.Operation.Add, val);
+              attrReqs.add(attrReq);
+            } else {
+              AttributeRequest attrReq = new AttributeRequest(fieldName, ProvisioningPlan.Operation.Set, val);
+              attrReqs.add(attrReq);
+            }
+          }
+        }
+      }
+    }
+    return attrReqs;
+  }
+ 
+  public void updateADDNNameFields(Object oldVal, Object val, List attrReqs) {
+    if (val == null || oldVal == null || !(val instanceof String) || !(oldVal instanceof String)) {
+      return;
+    }
+    String oldName = "";
+    String oldParent = "";
+ 
+    String newName = "";
+    String newParent = "";
+ 
+    String ouField = "OU=";
+ 
+    String[] oldSplit = oldVal.toString().split(",OU=");
+    String[] newSplit = val.toString().split(",OU=");
+ 
+    if (oldSplit == null || oldSplit.length &lt; 2) {
+      oldSplit = oldVal.toString().split(",ou=");
+ 
+      if (oldSplit == null || oldSplit.length &lt; 2) {
+        return;
+      }
+ 
+      ouField = "ou=";
+    }
+ 
+    if (newSplit == null || newSplit.length &lt; 2) {
+ 
+      newSplit = val.toString().split(",ou=");
+ 
+      if (newSplit == null || newSplit.length &lt; 2) {
+        return;
+      }
+    }
+ 
+    oldName = oldSplit[0];
+    newName = newSplit[0];
+ 
+    for (int i = 1; i &lt; oldSplit.length; i++) {
+      oldParent += ouField + oldSplit[i];
+      if (i + 1 &lt; oldSplit.length) {
+        oldParent += ",";
+      }
+    }
+ 
+    for (int i = 1; i &lt; newSplit.length; i++) {
+      newParent += ouField + newSplit[i];
+ 
+      if (i + 1 &lt; newSplit.length) {
+        newParent += ",";
+      }
+    }
+ 
+    if (!equalsCNValues(oldName, newName)) {
+      AttributeRequest attrReq = new AttributeRequest("AC_NewName", ProvisioningPlan.Operation.Set, newName);
+      attrReqs.add(attrReq);
+    }
+    if (!oldParent.equalsIgnoreCase(newParent)) {
+      AttributeRequest parReq = new AttributeRequest("AC_NewParent", ProvisioningPlan.Operation.Set, newParent);
+      attrReqs.add(parReq);
+    }
+    return;
+  }
+ 
+  public boolean equalsCNValues(String oldName, String newName) {
+    if (newName == null || oldName == null) {
+      return true;
+    }
+    String regex = "(.*)( [0-9]+)";
+    newName = newName.replaceAll(regex, "$1");
+    oldName = oldName.replaceAll(regex, "$1");
+    return newName.equalsIgnoreCase(oldName);
+  }
+  </Source>
+</Rule>

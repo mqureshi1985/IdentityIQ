@@ -1,0 +1,61 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Bulk Action Rules Library">
+<Source>
+  import java.util.List;
+  import com.iam.IAMLogger;
+  import com.iam.SailPointConcurrentService;
+  import sailpoint.api.SailPointContext;
+  import sailpoint.object.Filter;
+  import sailpoint.object.Identity;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.Workflow;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+ 
+  public boolean execute(SailPointContext context, Workflow workflow) {
+    boolean hasMoreElements = false;
+    int sliceCount = workflow.getInt("sliceCount");
+    int slices = workflow.getInt("slices");
+    int limit = workflow.getInt("limit");
+	
+    try {
+      QueryOptions qo = new QueryOptions();
+      //qo.addFilter(Filter.in("name", Util.csvToList("100698")));
+      qo.addFilter(Filter.eq("lifeCycleState", "Active"));
+      qo.addFilter(Filter.notnull("sAMAccountName"));
+      qo.setOrderBy("id");
+      if (limit > 0) {
+        if (slices == 0) {
+          int count = context.countObjects(Identity.class, qo);
+          slices = count / limit;
+          if (count > (slices * limit)) {
+            slices = slices + 1;
+          }
+          IAMLogger.debug(IAMLogger.ATTRSYNC, String.format("Slices : %s", slices));
+          workflow.put("slices", slices);
+        }
+        qo.setFirstRow(sliceCount * limit);
+        qo.setResultLimit(limit);
+      }
+	  
+      IAMLogger.debug(IAMLogger.ATTRSYNC, "Running concurrent service");
+	  
+      List result = new SailPointConcurrentService.Builder().queryOptions(qo).objectClass(Identity.class).ruleName("SP Synchronize Attribute Requests").build().execute(context);
+      List items = new ArrayList();
+      for(Object item : result) {
+        items.addAll((List)item);
+      }
+      IAMLogger.debug(IAMLogger.ATTRSYNC, String.format("Result: %s", items.size()));
+      IAMLogger.debug(IAMLogger.ATTRSYNC, String.format("Slice Count : %s", sliceCount));
+      sliceCount++;
+	  
+      hasMoreElements = (limit > 0 &amp;&amp; slices > 0 &amp;&amp; sliceCount &lt; slices);
+      IAMLogger.debug(IAMLogger.ATTRSYNC, String.format("Has More Element : %s", hasMoreElements));
+      workflow.put("sliceCount", sliceCount);
+    } catch (Exception e) {
+    }
+    return hasMoreElements;
+  }
+</Source>
+</Rule>

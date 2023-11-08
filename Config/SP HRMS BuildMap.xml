@@ -1,0 +1,158 @@
+[11:45 AM] Muhammed Abdul Gafur
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP HRMS BuildMap" type="JDBCBuildMap">
+  <Description>This rule is used by the JDBC connector to build a map representation of the Resultset.</Description>
+  <Signature returnType="Map">
+    <Inputs>
+      <Argument name="log">
+        <Description> The log object associated with the SailPointContext. 
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description> A sailpoint.api.SailPointContext object that can be used to query the database if necessary. 
+        </Description>
+      </Argument>
+      <Argument name="application">
+        <Description> The application whose data file is being processed. 
+        </Description>
+      </Argument>
+      <Argument name="schema">
+        <Description> The Schema currently in use. 
+        </Description>
+      </Argument>
+      <Argument name="state">
+        <Description> A Map containing state information. 
+        </Description>
+      </Argument>
+      <Argument name="result">
+        <Description> The ResultSet from database. 
+        </Description>
+      </Argument>
+      <Argument name="connection">
+        <Description> A connection object to connect to database. 
+        </Description>
+      </Argument>
+    </Inputs>
+    <Returns>
+      <Argument name="map">
+        <Description> A Map of the resource object assembled from the data. 
+        </Description>
+      </Argument>
+    </Returns>
+  </Signature>
+  <Source>
+  import java.sql.ResultSet;
+  import java.sql.SQLException;
+  import java.sql.Statement;
+  import java.util.HashMap;
+  import java.util.Map;
+  import sailpoint.connector.Connector;
+  import sailpoint.connector.JDBCConnector;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+  import com.gib.iam.IAMLogger;
+ 
+  private Map getViewData(String empNo) {
+    Map viewData = new HashMap();
+    String sqlQuery = "SELECT EMPLOYEE_NUMBER,BUSINESS_GROUP,AREA,MOBILE_NUMBER,LOCATION,ABSENCE_START_DATE,ABSENCE_END_DATE,LEAVING_REASON FROM \"APPS\".\"XX_GIB_HR2OID_EMP_DETAILS_V\"";
+    if (Util.isNotNullOrEmpty(empNo)) {
+      sqlQuery = String.format(
+          "SELECT EMPLOYEE_NUMBER,BUSINESS_GROUP,AREA,MOBILE_NUMBER,LOCATION,ABSENCE_START_DATE,ABSENCE_END_DATE,LEAVING_REASON,POSITION_TITLE FROM \"APPS\".\"XX_GIB_HR2OID_EMP_DETAILS_V\" WHERE EMPLOYEE_NUMBER='%s'",
+          empNo);
+    }
+    ResultSet rs = null;
+    Statement stmt = null;
+    try {
+      try {
+        stmt = connection.createStatement();
+        rs = stmt.executeQuery(sqlQuery);
+        while (rs.next()) {
+          Map data = new HashMap();
+          String employeeNumber = rs.getString("EMPLOYEE_NUMBER");
+          String businessGroup = rs.getString("BUSINESS_GROUP");
+          String area = rs.getString("AREA");
+          String mobile = rs.getString("MOBILE_NUMBER");
+          String location = rs.getString("LOCATION");
+          String leaveStartDate = rs.getString("ABSENCE_START_DATE");
+          String leaveEndDate = rs.getString("ABSENCE_END_DATE");
+          String leavingReason = rs.getString("LEAVING_REASON");
+          String position = rs.getString("POSITION_TITLE");
+          data.put("EMPLOYEE_NUMBER", (Util.isNotNullOrEmpty(employeeNumber) ? employeeNumber.trim() : ""));
+          data.put("BUSINESS_GROUP", (Util.isNotNullOrEmpty(businessGroup) ? businessGroup.trim() : ""));
+          data.put("AREA", (Util.isNotNullOrEmpty(area) ? area.trim() : ""));
+          data.put("POSITION_TITLE", (Util.isNotNullOrEmpty(position) ? position.trim() : ""));
+          data.put("MOBILE_NUMBER", (Util.isNotNullOrEmpty(mobile) ? mobile.trim() : ""));
+          data.put("LOCATION", (Util.isNotNullOrEmpty(location) ? location.trim() : ""));
+          data.put("ABSENCE_START_DATE", (Util.isNotNullOrEmpty(leaveStartDate) ? leaveStartDate.trim() : "-"));
+          data.put("ABSENCE_END_DATE", (Util.isNotNullOrEmpty(leaveEndDate) ? leaveEndDate.trim() : "-"));
+          data.put("LEAVING_REASON", (Util.isNotNullOrEmpty(leavingReason) ? leavingReason.trim() : ""));
+          viewData.put(employeeNumber, data);
+        }
+        return viewData;
+      } finally {
+        if (rs != null) {
+          rs.close();
+        }
+        if (stmt != null) {
+          stmt.close();
+        }
+      }
+    } catch (SQLException sqlException) {
+      throw new GeneralException(sqlException);
+    }
+  }
+ 
+  try {
+    Map jdbcMapResult = JDBCConnector.buildMapFromResultSet(result);
+    if (schema.getObjectType().compareTo(Connector.TYPE_ACCOUNT) == 0) {
+      String empNo = (String) jdbcMapResult.get("EMPLOYEE_NUMBER");
+      if (Util.isNotNullOrEmpty(empNo)) {
+        Map viewData = null;
+        if (state == null || state.isEmpty()) {
+          state = new HashMap();
+          viewData = getViewData(empNo);
+          if (!viewData.isEmpty()) {
+            state.putAll(viewData);
+          }
+        } else {
+          if (state.get(empNo) == null) {
+            viewData = getViewData(null);
+            if (!viewData.isEmpty()) {
+              state.putAll(viewData);
+            }
+          }
+        }
+        // Populate the fields from the view.
+        if (state.get(empNo) != null) {
+          jdbcMapResult.putAll((Map) state.get(empNo));
+        }
+      }
+      String POSITION = (String) jdbcMapResult.get("POSITION");
+      if (Util.isNotNullOrEmpty(POSITION) &amp;&amp; POSITION.contains(".")) {
+        String POSITION_NUMBER = POSITION.substring(0, POSITION.indexOf("."));
+        jdbcMapResult.put("POSITION_NUMBER", POSITION_NUMBER);
+ 
+        String POSITION_NAME = (String) jdbcMapResult.get("POSITION_TITLE");
+        jdbcMapResult.put("POSITION", POSITION_NAME);
+      }
+      String personType = (String) jdbcMapResult.get("PERSON_TYPE");
+      if ("الموظف".equalsIgnoreCase(personType)) {
+        jdbcMapResult.put("PERSON_TYPE", "Employee");
+      }
+      if ("موظف سابق".equalsIgnoreCase(personType)) {
+        jdbcMapResult.put("PERSON_TYPE", "Ex-employee");
+      }
+      String orgName = (String) jdbcMapResult.get("ORGANIZATION");
+      if ("تقديم الخدمات المؤسسية لتقنية المعلومات".equalsIgnoreCase(orgName)) {
+        jdbcMapResult.put("ORGANIZATION", "Information Technology");
+      }
+    }
+    IAMLogger.info(IAMLogger.JOINER, String.format("GIB HRMS Result from db :"));
+    IAMLogger.info(IAMLogger.JOINER, "Result " +jdbcMapResult);
+    return jdbcMapResult;
+  } catch(Exception ex) {
+    throw new GeneralException(ex);
+  }
+  </Source>
+</Rule>

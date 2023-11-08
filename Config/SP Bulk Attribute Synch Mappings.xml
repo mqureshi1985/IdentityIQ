@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Custom PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Custom name="SP Bulk Attribute Synch Mappings">
+<Attributes>
+<Map>
+<entry key="Application Skip Fields">
+<value>
+<Attributes>
+<Map>
+<entry key="Active Directory">
+<value>
+<List>
+<String>accountExpires</String>
+<String>objectType</String>
+<String>distinguishedName</String>
+<String>sAMAccountName</String>
+<String>userPrincipalName</String>
+<String>password</String>
+<String>mail</String>
+<String>facsimileTelephoneNumber</String>
+<String>homeDirectory</String>
+<String>homeMDB</String>
+<String>mailNickname</String>
+<String>pwdLastSet</String>
+<String>displayName</String>
+<String>givenName</String>
+<String>sn</String>
+<String>telephoneNumber</String>
+<String>mobile</String>
+</List>
+</value>
+</entry>
+</Map>
+</Attributes>
+</value>
+</entry>
+</Map>
+</Attributes>
+</Custom>

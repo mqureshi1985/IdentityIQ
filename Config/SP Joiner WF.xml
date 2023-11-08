@@ -1,0 +1,124 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="SP Joiner WF" type="IdentityLifecycle">
+  <Variable input="true" name="trigger"/>
+  <Variable input="true" name="event"/>
+  <Variable initializer="string:true" name="trace"/>
+  <Variable initializer="string:GIBJoiner" name="flow"/>
+  <Variable initializer="string:LCM" name="source"/>
+  <Variable input="true" name="identityName"/>
+  <Variable editable="true" initializer="false" name="optimisticProvisioning"/>
+  <Variable editable="true" initializer="false" name="foregroundProvisioning"/>
+  <Variable initializer="script:(identityDisplayName != void) ? identityDisplayName : resolveDisplayName(identityName)" input="true" name="identityDisplayName"/>
+  <Variable editable="true" initializer="string:true" input="true" name="doRefresh"/>
+  <Variable name="plan"/>
+  <Variable name="project"/>
+  <Variable name="emailArgList"/>
+  <Variable name="approvalSet"/>
+  <Variable name="identityRequestId" output="true"/>
+  <RuleLibraries>
+    <Reference class="sailpoint.object.Rule" name="SP Role Assigment Rule Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Provisioning Rules Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Common Rule Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Joiner Rule Library"/>
+  </RuleLibraries>
+  <Step icon="Start" name="Start" posX="9" posY="38">
+    <Script>
+      <Source>
+         import com.gib.iam.IAMLogger;
+         IAMLogger.info(IAMLogger.JOINER, String.format("******Starting Joiner Process for Identity: %s", identityName));
+      </Source>
+    </Script>
+    <Transition to="Build Plan"/>
+  </Step>
+  <Step action="script:return buildPlan(context,workflow);" icon="Analysis" name="Build Plan" posX="81" posY="109" resultVariable="plan">
+    <Transition to="Initialize"/>
+  </Step>
+  <Step icon="Task" name="Initialize" posX="160" posY="30">
+    <Arg name="formTemplate" value="Identity Update"/>
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="source" value="ref:source"/>
+    <Arg name="optimisticProvisioning" value="ref:optimisticProvisioning"/>
+    <Arg name="identityDisplayName" value="ref:identityDisplayName"/>
+    <Arg name="identityRequest"/>
+    <Arg name="trace" value="ref:trace"/>
+    <Arg name="optimisticProvisioning" value="ref:optimisticProvisioning"/>
+    <Arg name="plan" value="ref:plan"/>
+    <Arg name="flow" value="ref:flow"/>
+    <Arg name="launcher" value="ref:launcher"/>
+    <Description> Call the standard subprocess to initialize the request, this includes auditing, building the approvalset, compiling the plan into project and checking policy violations. 
+    </Description>
+    <Return name="project" to="project"/>
+    <Return name="approvalSet" to="approvalSet"/>
+    <Return name="identityRequestId" to="identityRequestId"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" name="Identity Request Initialize"/>
+    </WorkflowRef>
+    <Transition to="Auto Approve"/>
+  </Step>
+  <Step name="Auto Approve" posX="241" posY="113">
+    <Script>
+      <Source>
+          import sailpoint.workflow.IdentityRequestLibrary;
+          doAutoApprove(approvalSet);
+          IdentityRequestLibrary.assimilateWorkItemApprovalSetToIdentityRequest(wfcontext, approvalSet);</Source>
+    </Script>
+    <Transition to="Provision"/>
+  </Step>
+  <Step icon="Provision" name="Provision" posX="325" posY="30">
+    <Arg name="foregroundProvisioning" value="ref:foregroundProvisioning"/>
+    <Arg name="trace" value="ref:trace"/>
+    <Arg name="enableRetryRequest"/>
+    <Arg name="recompileBeforeProvisioning" value="!ref:foregroundProvisioning"/>
+    <Arg name="disableIdentityRequests"/>
+    <Arg name="project" value="ref:project"/>
+    <Arg name="provisioningMaxRetries"/>
+    <Arg name="identityRequestId" value="ref:identityRequestId"/>
+    <Arg name="retryProject"/>
+    <Arg name="splitProvisioning"/>
+    <Arg name="provisioningRetryThreshold"/>
+    <Return name="retries" to="retries"/>
+    <Return name="project" to="project"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" name="Provision with retries"/>
+    </WorkflowRef>
+    <Transition to="Post Provision"/>
+  </Step>
+  <Step action="call:refreshIdentity" condition="ref:doRefresh" icon="Task" name="Refresh Identity" posX="486" posY="38">
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="provision" value="false"/>
+    <Arg name="correlateEntitlements" value="true"/>
+    <Arg name="synchronizeAttributes" value="false"/>
+    <Arg name="promoteAttributes" value="true"/>
+    <Arg name="refreshLinks" value="true"/>
+    <Transition to="Notify"/>
+  </Step>
+  <Step action="script:postProvision(context,workflow);" icon="Task" name="Post Provision" posX="407" posY="116">
+    <Transition to="Refresh Identity"/>
+  </Step>
+  <Step icon="Task" name="Notify" posX="607" posY="37">
+    <Arg name="identityDisplayName"/>
+    <Arg name="emailTemplateExists"/>
+    <Arg name="trace"/>
+    <Arg name="identityName"/>
+    <Arg name="emailArgs"/>
+    <Arg name="emailIterator"/>
+    <Arg name="emailArgList" value="ref:emailArgList"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" name="SP Dynamic Send Emails Sub"/>
+    </WorkflowRef>
+    <Transition to="end"/>
+  </Step>
+  <Step catches="complete" icon="Catches" name="Finalize" posX="513" posY="174">
+    <Arg name="trace" value="ref:trace"/>
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="approvalSet" value="ref:approvalSet"/>
+    <Arg name="project" value="ref:project"/>
+    <Arg name="identityRequestId" value="ref:identityRequestId"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" name="Identity Request Finalize"/>
+    </WorkflowRef>
+    <Transition to="end"/>
+  </Step>
+  <Step icon="Stop" name="end" posX="608" posY="131"/>
+</Workflow>

@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Custom PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Custom name="SP Field Value Mappings Custom">
+  <Attributes>
+    <Map>
+      <entry key="Active Directory">
+        <value>
+          <List>
+            <Field name="distinguishedName" type="rule" value="getDistinguishedName"/>
+            <Field name="sAMAccountName" type="rule" value="getSAMAccountName"/>
+            <Field name="userPrincipalName" type="rule" value="getUserPrincipalName"/>
+            <Field name="password" type="rule" value="getADPassword"/>
+            <Field name="givenName" type="attribute" value="firstname"/>
+            <Field name="sn" type="attribute" value="lastname"/>
+            <Field name="displayName" type="rule" value="getADDisplayName"/>
+            <Field name="description" type="rule" value="getPositionName"/>
+            <Field name="mail" type="rule" value="getEmail"/>
+            <Field name="title" type="rule" value="getPositionName"/>
+            <Field name="department" type="attribute" value="department"/>
+            <Field name="company" type="attribute" value="company"/>
+            <Field name="manager" type="rule" value="getADManagerDN"/>
+            <Field name="l" type="rule" value="getADCity"/>
+            <Field name="st" type="rule" value="getADState"/>
+            <Field name="c" type="rule" value="getADCountryC"/>
+            <Field name="co" type="rule" value="getADCountryCO"/>
+            <Field name="countryCode" type="rule" value="getADCountryCode"/>
+            <Field name="employeeNumber" type="attribute" value="getSAMAccountName"/>
+            <Field name="mailNickname" type="rule" value="getMailNickname"/>
+            <Field name="homeMDB" type="rule" value="getExchHomeMDB"/>
+            <Field name="pwdLastSet" type="rule" value="getPwdLastSet"/>
+            <Field name="homeDirectory" type="rule" value="getHomeDirectory"/>
+            <Field name="accountExpires" type="rule" value="getAcccountExpiresValue"/>
+          </List>
+        </value>
+      </entry>
+    </Map>
+  </Attributes>
+</Custom>

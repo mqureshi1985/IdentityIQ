@@ -1,0 +1,134 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="SP Workflow Launcher" type="Subprocess">
+  <Variable input="true" name="identityName"/>
+  <Variable input="true" name="wfCaseName"/>
+  <Variable input="true" name="wfName"/>
+  <Variable input="true" name="launcher"/>
+  <Variable input="true" name="flow"/>
+  <Variable input="true" name="requestor"/>
+  <Variable input="true" name="trace"/>
+  <Variable input="true" name="isTermination"/>
+  <Variable name="wfStatus" output="true"/>
+  <Variable name="identityTaskResultId"/>
+  <Variable initializer="LCM" input="true" name="triggerSource"/>
+  <RuleLibraries>
+    <Reference class="sailpoint.object.Rule" name="SP Common Rule Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Role Assigment Rule Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Provisioning Rules Library"/>
+  </RuleLibraries>
+  <Step icon="Start" name="Start" posX="38" posY="21">
+    <Script>
+      <Source>
+     import com.iam.IAMLogger;
+     IAMLogger.info(IAMLogger.MOVER, String.format("******Launching %s Process for Identity: %s", wfCaseName, identityName));
+      </Source>
+    </Script>
+    <Transition to="Launch WF"/>
+  </Step>
+  <Step icon="Default" name="Launch WF" posX="144" posY="20" resultVariable="identityTaskResultId">
+    <Script>
+      <Source>
+        import java.util.HashMap;
+        import sailpoint.api.Workflower;
+        import sailpoint.object.Workflow;
+        import sailpoint.object.WorkflowLaunch;
+        import sailpoint.tools.GeneralException;
+        import com.iam.IAMLogger;
+        HashMap launchArgsMap = new HashMap();
+        launchArgsMap.put("identityName", identityName);
+        launchArgsMap.put("flow", flow);
+        launchArgsMap.put("requestor", requestor);
+        launchArgsMap.put("launcher", launcher);
+        launchArgsMap.put("trace", trace);
+        launchArgsMap.put("isTermination", isTermination);
+        launchArgsMap.put("triggerSource", triggerSource);
+        // Create WorkflowLaunch and set values
+        WorkflowLaunch wflaunch = new WorkflowLaunch();
+        Workflow wf = (Workflow) context.getObjectByName(Workflow.class, wfName);
+        wflaunch.setWorkflowName(wf.getName());
+        wflaunch.setWorkflowRef(wf.getName());
+        wflaunch.setCaseName(wfCaseName + " Identity - " + identityName);
+        wflaunch.setVariables(launchArgsMap);
+        // Create Workflower and launch workflow from WorkflowLaunch
+        Workflower workflower = new Workflower(context);
+        WorkflowLaunch launch = workflower.launch(wflaunch);
+        if (launch == null) {
+          return null;
+        }
+        IAMLogger.info(IAMLogger.MOVER, String.format("Launching %s Workflow with TaskId: %s", wfCaseName, launch.getTaskResult().getId()));
+        return launch.getTaskResult().getId();
+      </Source>
+    </Script>
+    <Transition to="VerifyTaskStatus" when="script:(identityTaskResultId == null)"/>
+    <Transition to="Sleep for 5 mins"/>
+  </Step>
+  <Step name="Sleep for 5 mins" posX="317" posY="17" wait="1">
+    <Transition to="isTaskComplete"/>
+  </Step>
+  <Step icon="Default" name="isTaskComplete" posX="317" posY="124" resultVariable="isWorkflowTaskComplete">
+    <Script>
+      <Source>
+        import sailpoint.object.TaskResult;
+        import sailpoint.tools.GeneralException;
+        import com.iam.IAMLogger;
+ 
+        TaskResult wfTaskResult = context.getObjectById(TaskResult.class, identityTaskResultId);
+        IAMLogger.info(IAMLogger.MOVER, String.format("isTaskComplete: %s", wfTaskResult.isComplete()));
+        return wfTaskResult.isComplete();
+      </Source>
+    </Script>
+    <Transition to="VerifyTaskStatus" when="script:(isWorkflowTaskComplete == true)"/>
+    <Transition to="Sleep for 5 mins"/>
+  </Step>
+  <Step icon="Default" name="VerifyTaskStatus" posX="213" posY="200" resultVariable="wfStatus">
+    <Script>
+      <Source>
+        import java.util.ArrayList;
+        import java.util.HashSet;
+        import java.util.List;
+        import java.util.Map;
+        import java.util.Set;
+        import com.iam.IAMConstants;
+        import com.iam.IAMLogger;
+        import sailpoint.api.SailPointContext;
+        import sailpoint.object.IdentityRequest;
+        import sailpoint.object.IdentityRequestItem;
+        import sailpoint.object.TaskResult;
+        import sailpoint.object.Workflow;
+        import sailpoint.tools.GeneralException;
+        import sailpoint.tools.Message;
+        import sailpoint.tools.Util;
+        IAMLogger.info(IAMLogger.MOVER, "Verifying IdentityRequest:");
+        if (Util.isNullOrEmpty(identityTaskResultId)) {
+          return String.format("Failed to launch identity workflow for identity: %s", identityName);
+        }
+        Set&lt;String> errorMessages = new HashSet&lt;String>();
+        TaskResult MOVERTaskResult = context.getObjectById(TaskResult.class, identityTaskResultId);
+        String irId = MOVERTaskResult.getString("identityRequestId");
+        if (Util.isNotNullOrEmpty(irId)) {
+          IdentityRequest ir = context.getObjectById(IdentityRequest.class, irId);
+          if (ir != null) {
+            for (IdentityRequestItem failedItem : Util.safeIterable(ir.getProvisioningFailedItems())) {
+              if (failedItem.getApplication().equals(IAMConstants.AD)) {
+                Map errors = getProvisioningErrors(context, ir.getProvisionedProject());
+                if (errors.get(IAMConstants.AD) != null) {
+                  errorMessages.addAll((List) errors.get(IAMConstants.AD));
+                }
+                // Add any missing info.
+                for (Message msg : Util.safeIterable(ir.getErrors())) {
+                  errorMessages.add(msg.getMessage());
+                }
+                break;
+              }
+            }
+          }
+        } 
+        IAMLogger.info(IAMLogger.MOVER, String.format("Error Messages: %s", errorMessages));
+        return Util.listToCsv(new ArrayList(errorMessages));
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+  <Step icon="Stop" name="Stop" posX="394" posY="200"/>
+</Workflow>

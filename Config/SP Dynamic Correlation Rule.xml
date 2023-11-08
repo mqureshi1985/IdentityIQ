@@ -1,0 +1,154 @@
+[11:45 AM] Muhammed Abdul Gafur
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Dynamic Correlation Rule" type="Correlation">
+  <Description>Identity Correlation Rules are used to find identities to which new accounts can be attached. A correlation rule must return a Map with one of the specified Return arguments.</Description>
+  <Signature returnType="Map">
+    <Inputs>
+      <Argument name="log">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+      <Argument name="environment" type="Map">
+        <Description>
+          Arguments passed to the aggregation task.
+        </Description>
+      </Argument>
+      <Argument name="application">
+        <Description>
+          Application being aggregated.
+        </Description>
+      </Argument>
+      <Argument name="account">
+        <Description>
+          A sailpoint.object.ResourceObject returned from the
+          collector.
+        </Description>
+      </Argument>
+      <Argument name="link">
+        <Description>
+          Existing link to this account.
+        </Description>
+      </Argument>
+    </Inputs>
+    <Returns>
+      <Argument name="identityName">
+        <Description>
+          The name of an Identity object.
+        </Description>
+      </Argument>
+      <Argument name="identity">
+        <Description>
+          A fully resolved Identity object if the rule wants
+          to do its own queries to locate the identity.
+        </Description>
+      </Argument>
+      <Argument name="identityAttributeName">
+        <Description>
+          The name of the extended attribute that can be used
+          to locate an existing identity.
+        </Description>
+      </Argument>
+      <Argument name="identityAttributeValue">
+        <Description>
+          The value of the named extended attribute that can be used
+          to locate an existing identity. This attribute is used
+          together with the identityAttributeName argument.
+        </Description>
+      </Argument>
+    </Returns>
+  </Signature>
+  <Source>
+  import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+ 
+import sailpoint.object.Filter;
+import sailpoint.object.Identity;
+import sailpoint.object.QueryOptions;
+ 
+import com.iam.IAMLogger;
+ 
+// Correlation strategy:
+// 1 - Try to match an account 'samAccountName' to an Identity by the Identity's "name" extended attribute.
+// 2 - Try to match an account 'mail' to an Identity by email address.
+// 3 - Give up, log a warning and let IdentityIQ create a stub Identity to correlate to.
+ 
+HashMap returnMap = new HashMap();
+ 
+ArrayList correlationProperites = new ArrayList();
+correlationProperites.add("sAMAccountName,name");
+correlationProperites.add("mail,email");
+ 
+// Attempt to correlate to Identity objects in priority order.
+for (Object pair : correlationProperites) {
+  	Boolean emailCorrelated = false;
+    String propertyPair = (String) pair;
+    List propertyNames = sailpoint.tools.Util.stringToList(propertyPair);
+    String accountProperty = (String) propertyNames.get(0);
+    String identityProperty = (String) propertyNames.get(1);
+    String acctPropertyValue = account.getStringAttribute(accountProperty);
+    if ((null == acctPropertyValue) || (0 == acctPropertyValue.length())) {
+        continue;
+    }
+ 
+    // We have a valid acctPropertyValue to try and match an Identity against.
+    QueryOptions qo = new QueryOptions();
+    if (identityProperty.equalsIgnoreCase("email")) {
+      String gibEmail = acctPropertyValue.substring(0, acctPropertyValue.indexOf("@") + 1) + "ecza.com";
+      String gibCapitalEmail = acctPropertyValue.substring(0, acctPropertyValue.indexOf("@") + 1) + "ecza.com";
+      qo.addFilter(Filter.or(Filter.ignoreCase(Filter.eq(identityProperty, gibEmail)), Filter.ignoreCase(Filter.eq(identityProperty, gibCapitalEmail))));
+    	emailCorrelated = true;
+    } else {
+      qo.addFilter(Filter.ignoreCase(Filter.eq(identityProperty, acctPropertyValue)));
+    }
+    // Use a projection query first to return minimal data.
+    ArrayList returnCols = new ArrayList();
+    returnCols.add("id");
+    returnCols.add("name");
+ 
+    String identityId = null;
+    String identityName = null;
+    int matchCount = 0;
+ 
+    // Execute the query against the IdentityIQ database.
+	Iterator it = context.search(Identity.class, qo, returnCols);
+	while (it.hasNext()) {
+	   Object [] retObjs = (Object []) it.next();
+	   identityId   = (String) retObjs[0];
+	   identityName = (String) retObjs[1];
+	   matchCount++; 
+	}
+    sailpoint.tools.Util.flushIterator(it);
+    if (1 == matchCount) {
+        // We matched exactly 1 and only 1 Identity. Verify that it is not
+        // a workgroup and if it is not then this is an affirmative correlation.
+        Identity identity = context.getObjectById(Identity.class, identityId);
+        returnMap.put("identity", identity);
+      if(emailCorrelated){
+        IAMLogger.info(IAMLogger.JOINER, String.format("Email Correated : %s ",identity.getName()));
+      }
+        return returnMap;
+    } // end if matchCount == 1.
+ 
+ 
+//todo remove
+//if( account.getStringAttribute("sAMAccountName").equals("p02864")){
+//Identity identity = context.getObjectByName(Identity.class,"102864");
+   //     returnMap.put("identity", identity);
+     //   return returnMap;
+//}
+ 
+ 
+} // end iterating through all the properties to match against.
+return returnMap;
+</Source>
+</Rule>

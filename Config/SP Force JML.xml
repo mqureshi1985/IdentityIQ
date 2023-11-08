@@ -1,0 +1,152 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="SP Force JML" type="IdentityLifecycle">
+  <Variable input="true" name="quickLinkIdentityId"/>
+  <Variable input="true" name="trigger"/>
+  <Variable input="true" name="event"/>
+  <Variable input="true" name="processName"/>
+  <Variable initializer="string:false" input="true" name="trace"/>
+  <Variable initializer="script:context.getObjectById(Identity.class,quickLinkIdentityId).getName()" input="true" name="identityName"/>
+  <Variable initializer="string:LCM" name="source"/>
+  <RuleLibraries>
+    <Reference class="sailpoint.object.Rule" name="SP Role Assigment Rule Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Provisioning Rules Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Common Rule Library"/>
+    <Reference class="sailpoint.object.Rule" name="SP Joiner Rule Library"/>
+  </RuleLibraries>
+  <Step icon="Start" name="Start" posX="28" posY="10">
+    <Transition to="Launch Joiners" when="&quot;joiner&quot;.equalsIgnoreCase(processName);"/>
+    <Transition to="Launch Joiners">
+      <Script>
+        <Source>
+    import com.iam.IAMConstants;
+    import sailpoint.api.IdentityService;
+    import sailpoint.object.Identity;
+    import sailpoint.object.Link;
+    import com.iam.IAMLogger;
+    if("joiner".equalsIgnoreCase(processName)) {
+      Application app = context.getObject(Application.class, IAMConstants.AD);
+      if (app != null) {
+        Identity identityObj = context.getObjectByName(Identity.class,identityName);
+        IdentityService is = new IdentityService(context);
+        List&lt;Link> adLinks = is.getLinks(identityObj, app);
+        if (adLinks == null || adLinks.isEmpty()) {
+          IAMLogger.info(IAMLogger.JOINER, String.format("******Starting Joiner Process for Identity: %s", identityName));
+          return true;
+        }
+        if (adLinks != null &amp;&amp; !adLinks.isEmpty()) {
+          Link adLink = adLinks.get(0);
+          if (adLink.isDisabled()) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+    </Source>
+      </Script>
+    </Transition>
+    <Transition to="Launch Movers" when="&quot;mover&quot;.equalsIgnoreCase(processName);"/>
+    <Transition to="Launch Leavers" when="&quot;leaver&quot;.equalsIgnoreCase(processName);"/>
+    <Transition to="End"/>
+  </Step>
+  <Step icon="Task" name="Launch Joiners" posX="202" posY="7">
+    <Arg name="allowRequestsWithViolations"/>
+    <Arg name="endOnManualWorkItems"/>
+    <Arg name="accountName"/>
+    <Arg name="policiesToCheck"/>
+    <Arg name="project"/>
+    <Arg name="identityRequestId"/>
+    <Arg name="source" value="ref:source"/>
+    <Arg name="foregroundProvisioning"/>
+    <Arg name="identityDisplayName"/>
+    <Arg name="requireViolationReviewComments"/>
+    <Arg name="trace" value="ref:trace"/>
+    <Arg name="doRefresh"/>
+    <Arg name="endOnProvisioningForms"/>
+    <Arg name="event" value="ref:event"/>
+    <Arg name="plan"/>
+    <Arg name="flow"/>
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="monitorId"/>
+    <Arg name="approvalSet"/>
+    <Arg name="policyViolations"/>
+    <Arg name="trigger" value="ref:trigger"/>
+    <Arg name="violationReviewDecision"/>
+    <Arg name="policyScheme"/>
+    <Arg name="background" value="true"/>
+    <Arg name="optimisticProvisioning"/>
+    <Arg name="emailArgList"/>
+    <Arg name="launcher" value="ref:launcher"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" name="SP Joiner WF"/>
+    </WorkflowRef>
+    <Transition to="End"/>
+  </Step>
+  <Step icon="Task" name="Launch Movers" posX="201" posY="110">
+    <Arg name="allowRequestsWithViolations"/>
+    <Arg name="endOnManualWorkItems"/>
+    <Arg name="accountName"/>
+    <Arg name="policiesToCheck"/>
+    <Arg name="project"/>
+    <Arg name="identityRequestId"/>
+    <Arg name="source" value="ref:source"/>
+    <Arg name="foregroundProvisioning"/>
+    <Arg name="identityDisplayName"/>
+    <Arg name="requireViolationReviewComments"/>
+    <Arg name="trace" value="ref:trace"/>
+    <Arg name="doRefresh"/>
+    <Arg name="endOnProvisioningForms"/>
+    <Arg name="event" value="ref:event"/>
+    <Arg name="plan"/>
+    <Arg name="flow"/>
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="monitorId"/>
+    <Arg name="approvalSet"/>
+    <Arg name="policyViolations"/>
+    <Arg name="trigger" value="ref:trigger"/>
+    <Arg name="violationReviewDecision"/>
+    <Arg name="policyScheme"/>
+    <Arg name="optimisticProvisioning"/>
+    <Arg name="emailArgList"/>
+    <Arg name="launcher" value="ref:launcher"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" name="SP Mover WF"/>
+    </WorkflowRef>
+    <Transition to="End"/>
+  </Step>
+  <Step icon="Task" name="Launch Leavers" posX="200" posY="213">
+    <Arg name="allowRequestsWithViolations"/>
+    <Arg name="endOnManualWorkItems"/>
+    <Arg name="accountName"/>
+    <Arg name="policiesToCheck"/>
+    <Arg name="project"/>
+    <Arg name="identityRequestId"/>
+    <Arg name="source" value="ref:source"/>
+    <Arg name="identityDisplayName"/>
+    <Arg name="foregroundProvisioning"/>
+    <Arg name="requireViolationReviewComments"/>
+    <Arg name="trace" value="ref:trace"/>
+    <Arg name="doRefresh"/>
+    <Arg name="endOnProvisioningForms"/>
+    <Arg name="event" value="ref:event"/>
+    <Arg name="plan"/>
+    <Arg name="flow"/>
+    <Arg name="isTermination" value="true"/>
+    <Arg name="identityName" value="ref:identityName"/>
+    <Arg name="monitorId"/>
+    <Arg name="approvalSet"/>
+    <Arg name="policyViolations"/>
+    <Arg name="trigger" value="ref:trigger"/>
+    <Arg name="violationReviewDecision"/>
+    <Arg name="policyScheme"/>
+    <Arg name="optimisticProvisioning"/>
+    <Arg name="emailArgList"/>
+    <Arg name="launcher" value="ref:launcher"/>
+    <WorkflowRef>
+      <Reference class="sailpoint.object.Workflow" name="SP Leaver WF"/>
+    </WorkflowRef>
+    <Transition to="End"/>
+  </Step>
+  <Step icon="Stop" name="End" posX="313" posY="7"/>
+</Workflow>

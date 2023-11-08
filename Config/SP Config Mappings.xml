@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Custom PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Custom name="SP Config Mappings">
+  <Attributes>
+    <Map>
+      <entry key="Active Directory">
+        <value>
+          <Map>
+            <entry key="countryCodes">
+              <value>
+                <Map>
+                  <entry key="Armenia" value="AM-Armenia-051"/>
+                  <entry key="Bahrain" value="BH-Bahrain-048"/>
+                  <entry key="Egypt" value="EG-Egypt-818"/>
+                  <entry key="Georgia" value="GE-Georgia-268"/>
+                  <entry key="India" value="IN-India-356"/>
+                  <entry key="Iran" value="IR-Iran-364"/>
+                  <entry key="Iraq" value="IQ-Iraq-368"/>
+                  <entry key="Jordan" value="JO-Jordan-400"/>
+                  <entry key="KSA" value="SA-Saudi Arabia-682"/>
+                  <entry key="Kenya" value="KE-Kenya-404"/>
+                  <entry key="Kuwait" value="KW-Kuwait-414"/>
+                  <entry key="Lebanon" value="LB-Lebanon-422"/>
+                  <entry key="Oman" value="OM-Oman-512"/>
+                  <entry key="Pakistan" value="PK-Pakistan-586"/>
+                  <entry key="Qatar" value="QA-Qatar-634"/>
+                  <entry key="UAE" value="AE-United Arab Emirates-784"/>
+                  <entry key="UK" value="UK-United Kingdom-826"/>
+                  <entry key="Uganda" value="UG-Uganda-800"/>
+                  <entry key="Uzbekistan" value="UZ-Uzbekistan-860"/>
+                </Map>
+              </value>
+            </entry>
+            <entry key="exchangeDBs" value="DB01,DB02,DB03"/>
+			</Map>
+			</value>
+			</entry>
+			
+      <entry key="Config"/>
+    </Map>
+  </Attributes>
+</Custom>

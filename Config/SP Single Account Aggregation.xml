@@ -1,0 +1,100 @@
+[11:45 AM] Muhammed Abdul Gafur
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Single Account Aggregation">
+  <Source>
+import java.util.HashMap;
+import java.util.Map;
+ 
+import sailpoint.api.Aggregator;
+import sailpoint.api.Identitizer;
+import sailpoint.api.SailPointContext;
+import sailpoint.connector.Connector;
+import sailpoint.connector.ConnectorException;
+import sailpoint.object.Application;
+import sailpoint.object.Attributes;
+import sailpoint.object.Identity;
+import sailpoint.object.ResourceObject;
+import sailpoint.object.Rule;
+import sailpoint.object.TaskResult;
+import sailpoint.tools.GeneralException;
+ 
+public String aggregateSingleAccount(SailPointContext context, String accountName, String applicationName) throws GeneralException, ConnectorException {
+ 
+  String errorMessage = "";
+ 
+  Application appObject = context.getObjectByName(Application.class, applicationName);
+  String appConnName = appObject.getConnector();
+  Connector appConnector = sailpoint.connector.ConnectorFactory.getConnector(appObject, null);
+  if (null == appConnector) {
+   errorMessage = "Failed to construct an instance of connector [" + appConnName + "]";
+   return errorMessage;
+  }
+ 
+  ResourceObject rObj = null;
+  try {
+   rObj = (ResourceObject) appConnector.getObject("account", accountName, null);
+  } catch (sailpoint.connector.ObjectNotFoundException onfe) {
+   errorMessage = "Connector could not find account: [" + accountName + "]";
+   errorMessage += " in application  [" + applicationName + "]";
+   return errorMessage;
+  }
+ 
+  if (null == rObj) {
+   errorMessage = "ERROR: Could not get ResourceObject for account: " + accountName;
+   return errorMessage;
+  }
+ 
+  Rule customizationRule = appObject.getCustomizationRule();
+  if (null != customizationRule) {
+   try {
+    HashMap ruleArgs = new HashMap();
+    ruleArgs.put("context", context);
+    ruleArgs.put("object", rObj);
+    ruleArgs.put("application", appObject);
+    ruleArgs.put("connector", appConnector);
+    ruleArgs.put("state", new HashMap());
+ 
+    ResourceObject newRObj = (ResourceObject) context.runRule(customizationRule, ruleArgs, null);
+    if (null != newRObj) {
+     rObj = newRObj;
+    }
+   } catch (Exception ex) {
+   }
+  }
+ 
+  Attributes argMap = new Attributes();
+  argMap.put("promoteAttributes", "true");
+  argMap.put("correlateEntitlements", "true");
+  argMap.put("noOptimizeReaggregation", "true");
+  argMap.put("checkDeleted", "true");
+ 
+  Aggregator agg = new Aggregator(context, argMap);
+  TaskResult taskResult = agg.aggregate(appObject, rObj);
+  if (null == taskResult) {
+   errorMessage = "ERROR: Null taskResult returned from aggregate() call.";
+   return errorMessage;
+  }
+  System.out.println(taskResult.toXml());
+  return "Success";
+}
+ 
+public void doRefresh(SailPointContext context, String identityName) throws GeneralException {
+  Identity identity = context.getObject(Identity.class, identityName);
+  if (identity != null) {
+   Map map = new HashMap();
+   map.put("promoteAttributes", true);
+   map.put("refreshLinks", true);
+ 
+   Attributes args = new Attributes();
+   args.setMap(map);
+   Identitizer idtz = new Identitizer(context, args);
+   idtz.refresh(identity);
+   context.saveObject(identity);
+   context.commitTransaction();
+  }
+}
+String acctName = "";
+IAMUtils.aggregateAccount(context, acctName, CFConstants.AD);
+  </Source>
+</Rule>

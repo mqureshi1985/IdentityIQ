@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Delete Objects">
+<Source>
+ 
+import java.util.Arrays;
+import sailpoint.api.SailPointContext;
+import sailpoint.object.Filter;
+import sailpoint.object.Identity;
+import sailpoint.object.QueryOptions;
+import sailpoint.api.Terminator;
+import sailpoint.tools.Util;
+import java.util.Iterator;
+ 
+QueryOptions qo = new QueryOptions();
+//qo.setCloneResults(true);
+qo.addFilter(Filter.isnull("manager"));
+Terminator terminator = new Terminator(context);
+terminator.deleteObjects(Identity.class, qo);
+Iterator identity_itr = context.search(Identity.class, qo, "id"); 
+if (null != identity_itr) {
+  while(identity_itr.hasNext()) {
+    Object[] result = identity_itr.next();
+    String id = result[0];
+    Identity identity = context.getObjectById(Identity.class, id);
+    if(null != identity) {
+      if(!"idmedge,spadmin,iamlocal".contains(identity.getName())) {
+        Terminator terminator = new Terminator(context);                          
+        terminator.deleteObject(identity); 
+        System.out.println("confirm deletion :"+identity.getName());
+      }
+    }
+  }
+  Util.flushIterator(identity_itr);
+  context.commitTransaction();
+  context.decache();
+}
+</Source>
+</Rule>

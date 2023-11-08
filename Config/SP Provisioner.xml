@@ -1,0 +1,60 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="SP Provisioner">
+<ReferencedRules>
+<Reference class="sailpoint.object.Rule" name="SP Role Assigment Rule Library"/>
+<Reference class="sailpoint.object.Rule" name="SP Provisioning Rules Library"/>
+</ReferencedRules>
+<Source>
+  import com.iam.IAMConstants;
+  import com.iam.IAMLogger;
+  import sailpoint.api.SailPointContext;
+  import sailpoint.api.Provisioner;
+  import sailpoint.object.Identity;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.object.ProvisioningProject;
+  import sailpoint.object.Workflow;
+  import sailpoint.tools.GeneralException;
+  import sailpoint.tools.Util;
+  import sailpoint.workflow.WorkflowContext;
+ 
+  public String provision(SailPointContext context, String identityName) throws GeneralException {
+    ProvisioningPlan plan = new ProvisioningPlan();
+    Identity identity = context.getObjectByName(Identity.class, identityName);
+    plan.setIdentity(identity);
+    String nativeIdentity = "CN=SPTest Identity32,OU=IT Retail,OU=IT,OU=Dhahran,OU=KSA,OU=Users-Computers,DC=GIB,DC=COM";
+    AccountRequest acctReq = new AccountRequest(AccountRequest.Operation.Modify, "Active Directory", null, nativeIdentity);
+    acctReq.add(new AttributeRequest("displayName", ProvisioningPlan.Operation.Set, "testkarhilo"));
+    plan.add(acctReq);
+    Provisioner provisioner = new Provisioner(context);
+    provisioner.setNoLocking(true);
+    ProvisioningProject project = provisioner.compile(plan);
+    provisioner.execute(plan);
+    project = provisioner.getProject();
+    return project.toXml();
+  }
+  public String provisionRole(SailPointContext context) throws GeneralException {
+    for (String identityName : Util.csvToList("100046,101429,111300,111426,111494,112280,112281,112283,112301,200406")) {
+      ProvisioningPlan plan = new ProvisioningPlan();
+      Identity identity = context.getObjectByName(Identity.class, identityName);
+      plan.setIdentity(identity);
+      AccountRequest acctReq = new AccountRequest(AccountRequest.Operation.Modify, "IIQ", null, identityName);
+      acctReq.add(new AttributeRequest("assignedRoles", ProvisioningPlan.Operation.Remove, "GIB.BAH.Finance"));
+      plan.add(acctReq);
+ 
+      Provisioner provisioner = new Provisioner(context);
+      provisioner.setNoLocking(true);
+      ProvisioningProject project = provisioner.compile(plan);
+      provisioner.execute(plan);
+      project = provisioner.getProject();
+      //return project.toXml();
+    }
+  }
+  return provisionRole(context);
+</Source>
+</Rule>
+
+has context menu
+Compose

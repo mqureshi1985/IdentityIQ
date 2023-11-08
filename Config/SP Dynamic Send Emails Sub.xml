@@ -1,0 +1,67 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" libraries="Identity,IdentityRequest" name="SP Dynamic Send Emails Sub" type="subprocesses">
+  <Variable input="true" name="identityName">
+    <Description>The name of the identity.</Description>
+  </Variable>
+  <Variable initializer="script:(identityDisplayName != void) ? identityDisplayName : resolveDisplayName(identityName)" input="true" name="identityDisplayName">
+    <Description>The displayName of the identity being updated. Query for this using a projection query and fall back to the name.</Description>
+  <Variable input="true" name="emailArgList">
+    <Description>List of HashMap, emailArgs, objects.</Description>
+  <Variable name="emailIterator">
+    <Description>An Iterator of the emailArgList. Each iteration is the HashMap, emailArgs, object.</Description>
+  <Variable name="emailArgs">
+    <Description>A HashMap of arguments used to contain dynamic text in emails, as well as the to address and the template.</Description>
+  <Variable initializer="true" name="trace"/>
+  <Variable name="emailTemplateExists"/>
+  <Step icon="Start" name="start" posX="28" posY="10">
+    <Transition to="Build Email Args List" when="emailArgList == null"/>
+    <Transition to="Build Iterator"/>
+  </Step>
+  <Step name="Build Email Args List" posX="93" posY="92" resultVariable="emailArgList">
+    <Transition to="end" when="emailArgList == null"/>
+  <Step name="Build Iterator" posX="304" posY="6" resultVariable="emailIterator">
+    <Arg name="emailArgList" value="ref:emailArgList"/>
+    <Script>
+      <Source>
+			if (emailArgList == null){
+				return null;
+  			} 
+			Iterator emailIterator = emailArgList.iterator();
+  			return emailIterator;
+		</Source>
+    </Script>
+    <Transition to="Get Next Email" when="emailIterator != null &amp;&amp; emailIterator.hasNext()"/>
+    <Transition to="Cleanup"/>
+  <Step name="Get Next Email" posX="519" posY="4" resultVariable="emailArgs">
+    <Arg name="emailIterator" value="ref:emailIterator"/>
+			import java.util.HashMap;
+			HashMap nextEmail = emailIterator.next();
+			return nextEmail;
+    <Transition to="Check The Template" when="nextEmail != null"/>
+  <Step name="Check The Template" posX="434" posY="251" resultVariable="emailTemplateExists">
+  			import sailpoint.object.EmailTemplate;
+  			boolean eExists = false;
+  			if (emailArgs.get("emailTemplate") != null){
+	  			EmailTemplate et = context.getObjectByName(EmailTemplate.class, emailArgs.get("emailTemplate"));
+	  			if (et != null){
+	  				eExists = true;
+	  			}
+  			}
+  			return eExists;
+  		</Source>
+    <Transition to="Send Email" when="emailTemplateExists"/>
+    <Transition to="Get Next Email" when="emailIterator.hasNext()"/>
+  <Step action="call:sendEmail" icon="Default" name="Send Email" posX="492" posY="121">
+    <Arg name="template" value="script:emailArgs.get(&quot;emailTemplate&quot;)"/>
+    <Arg name="identityDisplayName" value="ref:identityDisplayName"/>
+    <Arg name="emailArgs" value="ref:emailArgs"/>
+    <Arg name="to" value="script:emailArgs.get(&quot;to&quot;)"/>
+  <Step name="Cleanup" posX="371" posY="89">
+  			emailArgList = null;
+  			emailIterator = null;
+  			workflow.put("emailArgList", null);
+  			workflow.put("emailIterator", null);
+    <Transition to="end"/>
+  <Step icon="Stop" name="end" posX="261" posY="88"/>
+</Workflow>
