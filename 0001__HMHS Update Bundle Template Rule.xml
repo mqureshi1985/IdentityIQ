@@ -1,0 +1,833 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule created="1470659452571" id="1d1ac125565b0fdd01566a225e9b030e" language="beanshell" modified="1475225349549" name="HMHS Update Bundle Template Rule">
+  <Description>This rule Updated the Bundles Definition sheet.</Description>
+  <Signature>
+    <Inputs>
+      <Argument name="log">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+      <Argument name="config">
+        <Description>
+          configuration parameters for the rule.
+        </Description>
+      </Argument>
+    </Inputs>
+  </Signature>
+  <Source>
+    
+  
+                import sailpoint.api.*;
+                import sailpoint.object.*;
+                import sailpoint.tools.RFC4180LineIterator;
+                import sailpoint.tools.RFC4180LineParser;
+                
+                static StringBuffer logError=new StringBuffer();
+                static StringBuffer ruleResult=new StringBuffer();
+                static HashMap outputParameters=new HashMap();
+                static int currentLine=0;
+                String _errorMsg=null;  
+                String LOCALE="en_US";
+                StringWriter errors = new StringWriter();
+                  
+  
+  public static void logErrors(String MSG){
+                                logError.append("\n");
+                                logError.append("ERROR:");
+                                logError.append("Line :"+currentLine+"|");                         
+                                logError.append(MSG);
+
+                }
+                
+                public static void setResult(String key,String val){
+                                outputParameters.put(key, val);
+                }
+                
+                public static String getOutput(HashMap hmap){                
+                                ruleResult.append("&lt;table BORDER=1 BORDERCOLOR=\"#ccc\" width=\"100%\">");
+                                Iterator it = hmap.entrySet().iterator();
+                                while(it.hasNext()){
+                                                Map.Entry pair = (Map.Entry)it.next();
+                                                ruleResult.append("&lt;tr>");
+                                                                ruleResult.append("&lt;td>");
+                                                                ruleResult.append(pair.getKey());
+                                                                ruleResult.append("&lt;/td>&lt;td>");
+                                                                ruleResult.append(pair.getValue());
+                                                                ruleResult.append("&lt;/td>");
+                                                                ruleResult.append("&lt;/tr>");  
+                                                it.remove();
+                                }
+                                ruleResult.append("&lt;/table>");          
+                                return ruleResult.toString();
+                }
+                
+                public String checkEmpty(String str){
+                                if(str!=null &amp;&amp; str.trim().equalsIgnoreCase("NONE")){
+                                                return "";
+                                }
+                                return str;
+                }
+                
+                public boolean booleanAttrCheck(String inpStr){
+                                String[] boolVals={"True","False"};
+                                if(inpStr.equalsIgnoreCase(boolVals[0])){
+                                                return true;                                        
+                                }
+                                return false;
+
+                }
+                
+                
+                public String allowedValuesCheck(String attrName,String attrVal,String objType)throws Exception{
+                                switch(objType){
+                                case "Application":{
+                                                ObjectConfig linkConfig = ObjectConfig.getObjectConfig(Application.class);        
+                                                List&lt;Object> attrAllowedVals=null;
+                                                //Attr
+                                                switch(attrName){
+                                                case "certificateFrequency":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("certificateFrequency").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                                           
+                                                                                }
+                                                                                logErrors("certificateFrequency"+ ": "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "publicInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("publicInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                                           
+                                                                                }
+                                                                                logErrors("publicInfo"+ ": "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "confidentialInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("confidentialInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("confidentialInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+
+
+                                                case "governmentInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("governmentInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("governmentInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "hightrust":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("hightrust").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("hightrust"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "lineOfBusinessIndicator":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("lineOfBusinessIndicator").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("lineOfBusinessIndicator"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "soc2":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("soc2").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("soc2"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "sox":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("sox").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("sox"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "ssae16":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("ssae16").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("ssae16"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "mar":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("mar").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("mar"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "nist":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("nist").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("nist"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "addp":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("addp").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("addp"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "tdp":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("tdp").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("tdp"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "pciIndicator":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("pciIndicator").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("pciIndicator"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                default:return attrVal;
+                                                }                                              
+                                }
+                                case "Bundle":{
+                                                ObjectConfig linkConfig = ObjectConfig.getObjectConfig(Bundle.class); 
+                                                List&lt;Object> attrAllowedVals=null;
+                                                switch(attrName){
+                                                case "certificateFrequency":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("certificateFrequency").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                                           
+                                                                                }
+                                                                                logErrors("certificateFrequency"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "publicInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("publicInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                                           
+                                                                                }
+                                                                                logErrors("publicInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "confidentialInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("confidentialInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("confidentialInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+
+                                                case "governmentInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("governmentInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("governmentInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "hightrust":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("hightrust").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("hightrust"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "lineOfBusinessIndicator":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("lineOfBusinessIndicator").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("lineOfBusinessIndicator"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "soc2":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("soc2").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("soc2"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "ssae16":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("ssae16").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("ssae16"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "mar":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("mar").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("mar"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "nist":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("nist").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("nist"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "addp":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("addp").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("addp"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "tdp":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("tdp").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("tdp"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "pciIndicator":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("pciIndicator").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("pciIndicator"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "accessType":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("accessType").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("accessType"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                default:return attrVal;
+                                                }
+                                }
+                                case "Entitlement":{
+                                                ObjectConfig linkConfig = ObjectConfig.getObjectConfig(ManagedAttribute.class);         
+                                                List&lt;Object> attrAllowedVals=null;
+                                                switch(attrName){
+                                                case "certificateFrequency":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("certificateFrequency").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj)){
+                                                                                                                return (String)obj;           
+                                                                                                }
+                                                                                }
+                                                                                logErrors("certificateFrequency"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "publicInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("publicInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                                           
+                                                                                }
+                                                                                logErrors("publicInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "confidentialInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("confidentialInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("confidentialInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+
+                                                case "governmentInfo":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("governmentInfo").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("governmentInfo"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "hightrust":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("hightrust").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("hightrust"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "lineOfBusinessIndicator":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("lineOfBusinessIndicator").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("lineOfBusinessIndicator"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "soc2":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("soc2").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("soc2"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "ssae16":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("ssae16").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("ssae16"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "mar":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("mar").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("mar"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "nist":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("nist").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("nist"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "addp":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("addp").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("addp"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "tdp":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("tdp").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("tdp"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "pciIndicator":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("pciIndicator").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("pciIndicator"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                case "accessType":
+                                                                attrAllowedVals =linkConfig.getObjectAttribute("accessType").getAllowedValues();
+                                                                if(attrAllowedVals!=null){
+                                                                                for(Object obj:attrAllowedVals){
+                                                                                                if(attrVal.equalsIgnoreCase((String)obj))
+                                                                                                                return (String)obj;                                                                                                           
+                                                                                }
+                                                                                logErrors("accessType"+" : "+attrVal+" is not among the Allowed Values for the attribute. Setting to \"\"");
+                                                                                return "";
+                                                                } else{
+                                                                                return attrVal;
+                                                                }
+                                                default:return attrVal;
+                                                }
+                                }
+                                default:return attrVal;
+                                //default:return attrVal;
+                                }
+
+
+                }
+                
+
+                
+
+                public void updateBundle(String line)throws Exception{
+                                String OBJECT_TYPE="Bundle";
+                                RFC4180LineParser parser = new RFC4180LineParser(',');
+                                List tokens = parser.parseLine(line);
+                                String bundleName=(String) tokens.get(0);
+                                String bundleDispName=(String) tokens.get(1);
+                                String bundleAppName=(String) tokens.get(2);
+                                String bundleDesc=(String) tokens.get(3);                                            
+                                String bundleAccessType=(String) tokens.get(4);
+                                String bundleOwner=(String) tokens.get(5);
+                                String bundleEnv=(String) tokens.get(6);
+                                String bundleAction=(String) tokens.get(7);        
+                                
+
+                                String bundleActionVal="";
+                                if(bundleAction!=null &amp;&amp; !bundleAction.trim().equalsIgnoreCase("")){
+                                                bundleActionVal=bundleAction.trim();
+                                }
+
+                                switch(bundleActionVal.toUpperCase()){
+                                //case "":
+                                case "UPDATE":{
+                                                //Bundle role = (Bundle) context.getObjectByName(Bundle.class, bundleName);
+                                                Filter filter=Filter.ignoreCase(Filter.eq("name", bundleName.trim()));
+                                                Bundle role=context.getUniqueObject(Bundle.class, filter);
+                                                if(role==null)
+                                                                role = (Bundle) context.getObjectByName(Bundle.class, bundleName.trim());
+                                                                
+                                                if(role==null){
+                                                                logErrors(bundleName+" is not a valid Role Name");
+                                                                return;
+                                                }
+                                                if(bundleDispName!=null &amp;&amp; !bundleDispName.trim().equalsIgnoreCase(""))
+                                                                role.setDisplayName(bundleDispName.trim());
+                                                
+                                                Identity owner=null;
+                                                if(bundleOwner!=null &amp;&amp; !bundleOwner.trim().equalsIgnoreCase(""))
+                                                                owner = (Identity) context.getObjectByName(Identity.class, checkEmpty(bundleOwner.toUpperCase().trim()));        
+                                                                
+                                                if(owner==null){
+                                                                logErrors(bundleOwner+" is not a valid User");
+                                                                //return;
+                                                }else{
+                                                role.setOwner(owner);
+                                                }                                              
+
+                                                if(bundleDesc!=null &amp;&amp; !bundleDesc.trim().equalsIgnoreCase("")){
+                                                                Map descriptions = new HashMap();
+                                                                descriptions.put(LOCALE, bundleDesc);
+                                                                role.setDescriptions(descriptions);
+                                                }
+
+
+                                                if(bundleAccessType!=null &amp;&amp; !bundleAccessType.trim().equalsIgnoreCase(""))
+                                                                role.setAttribute("accessType",checkEmpty(allowedValuesCheck("accessType",bundleAccessType.trim(),OBJECT_TYPE)));
+
+                                                context.saveObject(role);
+                                                context.commitTransaction();
+                                                break;
+                                }
+                                case "DELETE":{
+                                                Bundle role = (Bundle) context.getObjectByName(Bundle.class, bundleName.trim());
+                                                
+                                                
+                                                if(role==null){
+                                                                logErrors(bundleName+"is not a valid Bundle Name");
+                                                                return;
+                                                }
+                                                List&lt;Bundle> inheritedRoles = role.getInheritance();
+                                                for(int i=0;i&lt; inheritedRoles.size();i++){
+                                                                role.removeInheritance(inheritedRoles.get(i));
+                                                }
+                                                context.saveObject(role);
+                                                context.commitTransaction();
+                                                
+                                                List&lt;Bundle> reqRolesList = context.getObjects(Bundle.class, 
+                                                                                new QueryOptions().addFilter(Filter.eq("requirements.name", role.getName())));                                                
+                                                Iterator itr=reqRolesList.iterator();
+                                                for(Bundle reqBundle:reqRolesList){
+                                                                reqBundle.removeRequirement(role);
+                                                                context.saveObject(reqBundle);
+                                                                context.commitTransaction();
+                                                }
+                                                
+                                                List&lt;Profile> profileList=role.getProfiles();
+                                                for(int i=0;i&lt; profileList.size();i++){
+                                                                role.remove(profileList.get(i));                                                  
+                                                }
+                                                context.saveObject(role);
+                                                context.commitTransaction();
+                                                
+                                                List&lt;Bundle> permitList=role.getPermits();
+                                                for(int i=0;i&lt; permitList.size();i++){
+                                                                role.remove(permitList.get(i));                                                 
+                                                }
+                                                context.saveObject(role);
+                                                context.commitTransaction();
+                                                
+                                                List&lt;Identity> identityList = context.getObjects(Identity.class, 
+                                                                                new QueryOptions().addFilter(Filter.or(Filter.eq("bundles.id", role.getId()), Filter.eq("assignedRoles.id", role.getId()))));                                      
+                                                if(identityList!=null){
+                                                                sailpoint.object.Attributes vars=new sailpoint.object.Attributes();
+                                                                vars.put(Identitizer.ARG_REFRESH_ROLE_METADATA,true);
+                                                                vars.put(Identitizer.ARG_PROMOTE_ATTRIBUTES,true);
+                                                                vars.put(Identitizer.ARG_CORRELATE_ENTITLEMENTS,true);
+                                                                Identitizer refresher= new Identitizer(context,vars);
+                                                                
+                                                for(Identity iden:identityList){
+                                                                if(iden.getAssignedRoles()!=null)
+                                                                iden.removeAssignedRole(role);
+                                                                if(iden.getDetectedRoles()!=null)
+                                                                iden.removeDetectedRole(role);
+                                                                
+                                                                //if(iden.getDetectedRoles()!=null)
+                                                                //iden.removeDetectedRole(role);
+                                                                
+                                                                context.saveObject(iden);
+                                                                context.commitTransaction();
+                                                                
+                                                                refresher.refresh(iden);
+                                                }                                              
+                                                }
+                                                List&lt;RoleIndex> indexes = context.getObjects(RoleIndex.class,new QueryOptions().addFilter(Filter.eq("bundle.id", role.getId() )));                
+                                                if(indexes!=null){
+                                                                for(RoleIndex ri:indexes){
+                                                                                ri.setBundle(null);
+                                                                                context.saveObject(ri);
+                                                                                context.commitTransaction();
+                                                                }
+                                                }
+
+                                                List&lt;RoleScorecard> roleScoreCards = context.getObjects(RoleScorecard.class,new QueryOptions().addFilter(Filter.eq("role.id", role.getId() )));                
+                                                if(roleScoreCards!=null){
+                                                                for(RoleScorecard rsc:roleScoreCards){
+                                                                                rsc.setRole(null);
+                                                                                context.saveObject(rsc);
+                                                                                context.commitTransaction();
+                                                                }
+                                                }
+                                                
+                                                /*RoleScorecard roleScoreCards = role.getScorecard();
+                                                if(roleScoreCards!=null){                                                              
+                                                                roleScoreCards.setRole(null);
+                                                                context.saveObject(roleScoreCards);
+                                                                context.commitTransaction();
+                                                }*/
+                                                
+                                                role.setRoleIndex(null);
+                                                role.setScorecard(null);
+                                                context.saveObject(role);
+                                                context.commitTransaction();
+                                                
+                                                context.removeObject(role);
+                                                context.commitTransaction();
+                                                break;                   
+                                }
+                                //default:logErrors("Correct Action not provided");
+                                }
+                }
+
+
+                public void executeFile(File file) throws Exception{
+                                currentLine=0;
+                                String line=null;
+                                BufferedReader buff=new BufferedReader(new InputStreamReader(new FileInputStream(file))) ;
+                                RFC4180LineIterator fileIterator=new RFC4180LineIterator(buff);
+                                RFC4180LineParser parser = new RFC4180LineParser(',');
+                                while((line=fileIterator.readLine()) !=null){
+                                                currentLine++;
+                                                if(line.startsWith("#")){
+                                                                continue;                                                             
+                                                }
+                                                updateBundle(line);
+                                }
+                }
+                
+                try{
+                                                String filePath=config.get("FILENAME");
+                                                File file= new File(filePath);
+                                                if(file.exists()){
+                                                                executeFile(file);
+                                                }else{
+                                                                _errorMsg="File "+file.getName()+" Not Found";
+                                                }
+                                }catch(Exception e){
+                                                e.printStackTrace(new PrintWriter(errors));
+                                                _errorMsg=errors.toString();
+                                }
+                                finally{                                  
+                                                setResult("Lines Executed", String.valueOf(currentLine));
+                                                setResult("Lines having error", logError.toString());
+                                                if(_errorMsg!=null){
+                                                                setResult("System Error", _errorMsg);
+                                                }
+                                                return getOutput(outputParameters);
+                                }
+
+                }
+
+               
+          
+   </Source>
+</Rule>
